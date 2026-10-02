@@ -1,7 +1,13 @@
+from langchain_tavily import TavilySearch
+import os
 from typing import TypedDict
-
 from langgraph.graph import END, START, StateGraph
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.language_models import FakeListLLM
+from dotenv import load_dotenv, dotenv_values
 
+
+load_dotenv()
 
 # 1. Shared state used by every node
 class State(TypedDict):
@@ -24,12 +30,63 @@ def coordinator_node(state: State):
 
 
 def prover_node(state: State):
-    """Pretends to find evidence supporting the query."""
-    print("Prover: looking for supporting evidence.")
+    print("\n=== [Prover] НАЧАЛО РАБОТЫ ===")
+    user_query = state["query"]
 
-    return {
-        "pro_evidence": "Found some supporting facts."
-    }
+    # --- ШАГ 1: РЕАЛЬНЫЙ ПОИСК В ИНТЕРНЕТЕ ---
+    print(f"👀 Ищу в интернете информацию по запросу: '{user_query}'...")
+
+    # Инициализируем поиск
+    search_tool = TavilySearch(max_results=2, tavily_api_key=os.getenv("TAVILY_API_KEY"))
+
+    try:
+        search_results = search_tool.invoke(user_query)
+
+        # УМНАЯ ОБРАБОТКА РЕЗУЛЬТАТОВ (Пуленепробиваемый вариант)
+        if isinstance(search_results, str):
+            # Если Tavily сразу вернул готовый текст
+            context_text = search_results
+        elif isinstance(search_results, list) and len(search_results) > 0 and isinstance(search_results[0], dict):
+            # Если Tavily вернул список словарей
+            context_text = "\n\n".join(
+                [f"Источник: {res.get('url', 'Нет URL')}\nТекст: {res.get('content', '')}" for res in search_results])
+        elif isinstance(search_results, list) and len(search_results) > 0 and hasattr(search_results[0],
+                                                                                      'page_content'):
+            # Если Tavily вернул объекты документов LangChain
+            context_text = "\n\n".join([f"Текст: {res.page_content}" for res in search_results])
+        else:
+            # На крайний случай просто превращаем результат в строку
+            context_text = str(search_results)
+
+        print("✅ Поиск успешен! Вот что нашлось (фрагмент):")
+        print(context_text[:300] + "...\n")
+
+    except Exception as e:
+        print(f"❌ Ошибка поиска: {e}")
+        return {"pro_evidence": "Ошибка поиска"}
+
+    # --- ШАГ 2: АНАЛИЗ НЕЙРОСЕТЬЮ ---
+    print("🧠 Передаю найденный текст нейросети для анализа...")
+
+    fake_responses = [
+        "Найдено доказательство: Python отлично подходит для новичков, так как имеет простой синтаксис (согласно найденным статьям)."]
+    llm = FakeListLLM(responses=fake_responses)
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "Ты Агент-Доказатель. Найди плюсы в тексте: {context}"),
+        ("user", "Запрос: {query}")
+    ])
+
+    chain = prompt | llm
+
+    # Запускаем!
+    response = chain.invoke({
+        "query": user_query,
+        "context": context_text
+    })
+
+    print("✅ Нейросеть сформировала ответ!")
+    return {"pro_evidence": response}
 
 
 def skeptic_node(state: State):
@@ -104,7 +161,7 @@ graph = builder.compile()
 
 
 # 5. Run the graph with a test question
-
+#
 if __name__ == "__main__":
     initial_state: State = {
         "query": "Is Python a good language for beginners?",
@@ -113,7 +170,9 @@ if __name__ == "__main__":
         "final_answer": "",
     }
 
-    final_state = graph.invoke(initial_state)
+    # final_state = graph.invoke(initial_state)
+    result = prover_node(initial_state)
 
     print("\n--- FINAL ANSWER ---")
-    print(final_state["final_answer"])
+    # print(final_state["final_answer"])
+    print(result["pro_evidence"])
