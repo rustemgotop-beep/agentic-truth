@@ -1,5 +1,5 @@
 from core.state import State
-from core.rag_engine import retrieve_math_knowledge
+from rag import retrieve_math_knowledge
 
 
 def orchestrator_node(state: State):
