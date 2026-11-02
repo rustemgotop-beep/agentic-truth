@@ -12,6 +12,7 @@ class AppConfig:
     gigachat_credentials: str = os.getenv("GIGACHAT_CREDENTIALS", "").strip().strip("\"'")
     gigachat_scope: str = os.getenv("GIGACHAT_SCOPE", "GIGACHAT_API_PERS").strip().strip("\"'")
     gigachat_model: str = os.getenv("GIGACHAT_MODEL", "GigaChat").strip().strip("\"'")
+    gigachat_base_url: str = os.getenv("GIGACHAT_BASE_URL", "https://gigachat.devices.sberbank.ru/api/v1").strip().strip("\"'")
     verify_ssl_certs: bool = False
 
     # Tavily
