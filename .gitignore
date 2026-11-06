@@ -43,3 +43,5 @@ Thumbs.db
 *.zip
 *.tar.gz
 *.log
+qdrant_db/
+.tmp.driveupload/

@@ -6,7 +6,9 @@ langchain-core
 langchain-gigachat
 gigachat
 
-# Поиск и RAG
+# Поиск и векторная база данных (RAG)
+qdrant-client
+scikit-learn
 langchain-tavily
 tavily-python
 
