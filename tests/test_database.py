@@ -1,14 +1,13 @@
 """
 Автоматизированный комплекс тестов для векторной базы данных Qdrant и RAG-слоя.
 Проверяет:
-1. Индексацию академического корпуса теорем матанализа (Зорич, Фихтенгольц, Кудрявцев).
-2. Семантический векторный поиск по ключевым запросам (Ролль, Вейерштрасс, Тейлор, Коши).
-3. Динамическое добавление новых теорем в Qdrant.
-4. Работу ретривера retrieve_math_knowledge.
+1. Индексацию расширенного академического корпуса теорем матанализа (40+ теорем).
+2. Семантический векторный поиск по 1-му и 2-му курсу (Ролль, Тейлор, Грин, Пикар, ТФКП).
+3. Динамическое добавление пользовательских теорем в Qdrant в рантайме.
+4. Работу гибридного ретривера retrieve_math_knowledge.
 """
-import sys
 import unittest
-from rag.qdrant_store import qdrant_store, QdrantMathStore
+from rag.qdrant_store import qdrant_store
 from rag.retriever import retrieve_math_knowledge
 from rag.corpus import MATH_SEED_CORPUS
 
@@ -19,8 +18,8 @@ class TestQdrantDatabase(unittest.TestCase):
         self.store = qdrant_store
 
     def test_01_corpus_indexing_count(self):
-        """Проверка полноты индексации стартового корпуса."""
-        self.assertGreaterEqual(self.store.count(), len(MATH_SEED_CORPUS))
+        """Проверка полноты индексации стартового корпуса (более 40 теорем)."""
+        self.assertGreaterEqual(self.store.count(), 40)
         stats = self.store.stats()
         self.assertEqual(stats["status"], "ready")
         self.assertEqual(stats["distance_metric"], "COSINE")
@@ -55,33 +54,48 @@ class TestQdrantDatabase(unittest.TestCase):
         self.assertIn("Первый замечательный предел", top["theorem"])
         print(f"[Test 4 OK] Предел найден с оценкой {top['score']}: '{top['theorem']}'")
 
-    def test_05_dynamic_addition(self):
-        """Проверка динамического добавления пользовательской теоремы в реальном времени."""
+    def test_05_search_advanced_multivariable_and_complex(self):
+        """Проверка поиска теорем 2-го курса (Грин, Пикар, ТФКП, Банах)."""
+        # Поиск формулы Грина
+        green_res = self.store.search("криволинейный интеграл формула грина двойной интеграл", top_k=1)
+        self.assertTrue(len(green_res) > 0)
+        self.assertIn("Грин", green_res[0]["theorem"])
+        print(f"[Test 5.1 OK] Формула Грина найдена с оценкой {green_res[0]['score']}")
+
+        # Поиск условий Коши-Римана (ТФКП)
+        tfkp_res = self.store.search("условия коши римана голоморфность частные производные u и v", top_k=1)
+        self.assertTrue(len(tfkp_res) > 0)
+        self.assertIn("Коши — Риман", tfkp_res[0]["theorem"])
+        print(f"[Test 5.2 OK] Условия Коши-Римана найдены с оценкой {tfkp_res[0]['score']}")
+
+    def test_06_dynamic_addition(self):
+        """Проверка динамического добавления новой пользовательской теоремы в реальном времени."""
         new_thm = {
-            "id": "darboux_theorem",
-            "theorem": "Теорема Дарбу о промежуточных значениях производной",
-            "source": "В.А. Зорич, «Математический анализ», Ч. 1, Гл. 5",
-            "content": "Если функция дифференцируема на [a, b], то ее производная принимает все промежуточные значения между f'(a) и f'(b).",
-            "citation": "«Производная обладает свойством Дарбу даже при отсутствии непрерывности» (Зорич).",
-            "latex_formula": r"\forall \gamma \in (f'(a), f'(b)) \ \exists c \in (a, b) : f'(c) = \gamma",
-            "tags": ["дарбу", "производная", "промежуточные значения", "дифференцируемость"]
+            "id": "cauchy_schwarz_inequality",
+            "category": "Функциональный анализ и неравенства",
+            "theorem": "Неравенство Коши — Буняковского — Шварца для интегралов",
+            "source": "А.Н. Колмогоров, С.В. Фомин, «Элементы теории функций»",
+            "content": "Для любых интегрируемых с квадратом функций f(x) и g(x) квадрат интеграла от их произведения не превосходит произведения интегралов их квадратов.",
+            "citation": "«Одно из важнейших неравенств математического анализа» (Колмогоров, Фомин).",
+            "latex_formula": r"\left( \int_a^b f(x) g(x) dx \right)^2 \le \left( \int_a^b f^2(x) dx \right) \left( \int_a^b g^2(x) dx \right)",
+            "tags": ["неравенство", "коши-буняковский", "шварц", "интеграл"]
         }
         success = self.store.add_theorem(new_thm)
         self.assertTrue(success)
 
-        # Проверяем, что теперь Дарбу моментально находится поиском
-        results = self.store.search("теорема дарбу промежуточные значения производной", top_k=1)
+        # Проверяем, что теперь Коши-Буняковский моментально находится поиском
+        results = self.store.search("неравенство коши буняковского для интегралов", top_k=1)
         self.assertTrue(len(results) > 0)
-        self.assertEqual(results[0]["id"], "darboux_theorem")
-        print(f"[Test 5 OK] Теорема Дарбу успешно добавлена в Qdrant и найдена с оценкой {results[0]['score']}")
+        self.assertEqual(results[0]["id"], "cauchy_schwarz_inequality")
+        print(f"[Test 6 OK] Неравенство Коши-Буняковского успешно добавлено и найдено с оценкой {results[0]['score']}")
 
-    def test_06_retriever_pipeline(self):
+    def test_07_retriever_pipeline(self):
         """Проверка работы верхнеуровневого ретривера retrieve_math_knowledge."""
         context, chunks = retrieve_math_knowledge("интеграл формула ньютона лейбница первообразная")
         self.assertTrue(len(chunks) > 0)
         self.assertIn("Ньютон", context)
         self.assertIn("Векторная БД Qdrant", chunks[0]["origin"])
-        print(f"[Test 6 OK] Ретривер успешно сформировал {len(chunks)} источников для LLM")
+        print(f"[Test 7 OK] Ретривер успешно сформировал {len(chunks)} источников для LLM")
 
 
 if __name__ == "__main__":

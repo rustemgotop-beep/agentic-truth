@@ -12,54 +12,61 @@ st.set_page_config(
 with st.sidebar:
     st.header("🗄️ Векторная БД Qdrant")
     stats = qdrant_store.stats()
-    st.metric("Количество теорем в БД", stats["points_count"])
+    st.metric("Количество теорем в БД", f"{stats['points_count']} теорем")
     st.metric("Размерность эмбеддингов", f"{stats['vector_dimension']} dims")
     st.caption("Режим: Embedded Local (без внешних зависимостей и Docker)")
-    st.caption("Метрика: Cosine Distance | Char-WB TF-IDF")
+    st.caption("Метрика: Cosine Distance | Char-WB TF-IDF (3-5 n-grams)")
 
     st.divider()
-    st.subheader("Быстрый выбор теоремы")
-    predefined = [
-        "Докажи теорему Больцано-Коши об обращении непрерывной функции в ноль",
-        "Сформулируй и строго докажи теорему Ролля о нуле производной",
-        "Докажи теорему Лагранжа о конечном приращении",
-        "Выведи и докажи формулу Тейлора с остаточным членом в форме Лагранжа",
-        "Докажи формулу Ньютона-Лейбница для определенного интеграла",
-        "Докажи Первый замечательный предел для sin(x)/x при x стремящемся к 0"
-    ]
-    selected_query = st.selectbox("Примеры из курса матанализа:", predefined)
+    st.subheader("Разделы математики")
+    categories = ["Все разделы"] + qdrant_store.get_categories()
+    selected_cat = st.selectbox("Выбрать раздел:", categories)
+
+    all_theorems = qdrant_store.list_theorems()
+    if selected_cat != "Все разделы":
+        filtered_theorems = [t for t in all_theorems if t.get("category") == selected_cat]
+    else:
+        filtered_theorems = all_theorems
+
+    theorem_titles = [f"Докажи: {t['theorem']}" for t in filtered_theorems]
+    selected_query = st.selectbox(
+        "Примеры теорем из базы:",
+        theorem_titles if theorem_titles else ["Докажи теорему Больцано-Коши об обращении непрерывной функции в ноль"]
+    )
 
     st.divider()
-    with st.expander("➕ Добавить свою теорему в Qdrant"):
+    with st.expander("➕ Добавить новую теорему в Qdrant"):
+        new_cat = st.selectbox("Раздел:", qdrant_store.get_categories())
         new_title = st.text_input("Название теоремы:")
-        new_source = st.text_input("Первоисточник (учебник, автор, глава):")
+        new_source = st.text_input("Первоисточник (учебник, автор):")
         new_formula = st.text_input("Формула (LaTeX):")
-        new_content = st.text_area("Формулировка и идея доказательства:")
-        if st.button("Индексировать в Qdrant"):
+        new_content = st.text_area("Формулировка и доказательство:")
+        if st.button("Индексировать в Qdrant", type="secondary"):
             if new_title and new_content:
                 added = qdrant_store.add_theorem({
+                    "category": new_cat,
                     "theorem": new_title,
                     "source": new_source or "Пользовательский ввод",
                     "latex_formula": new_formula,
                     "content": new_content,
-                    "tags": [new_title.lower()]
+                    "tags": [new_title.lower(), new_cat.lower()]
                 })
                 if added:
-                    st.success("✅ Теорема успешно добавлена и проиндексирована в Qdrant!")
+                    st.success("✅ Теорема добавлена и проиндексирована!")
                     st.rerun()
                 else:
-                    st.error("Не удалось добавить теорему.")
+                    st.error("Ошибка добавления теоремы.")
 
 # --- Основной заголовок ---
 st.title("🧮 Agentic Truth: Верификация Теоретического Матанализа")
 st.markdown(
     "**Архитектура**: LangGraph + Subgraph Prover (Григорий Коценко) + "
-    "SymPy AST Formal Engine + Векторная база данных Qdrant + GigaChat"
+    "SymPy AST Formal Engine + Векторная база данных Qdrant (40+ теорем) + GigaChat"
 )
 
 query = st.text_input(
     "Введите теорему или задачу математического анализа для доказательства:",
-    value=selected_query
+    value=selected_query.replace("Докажи: ", "")
 )
 
 if st.button("🚀 Доказать и верифицировать", type="primary"):
@@ -110,15 +117,15 @@ if st.button("🚀 Доказать и верифицировать", type="prim
             st.write("Источники не найдены.")
 
         st.divider()
-        st.subheader("Все проиндексированные теоремы в базе Qdrant (Каталог)")
-        all_theorems = qdrant_store.list_theorems()
-        for idx, thm in enumerate(all_theorems, 1):
-            with st.expander(f"{idx}. {thm['theorem']} ({thm['source']})"):
+        st.subheader(f"Каталог базы знаний Qdrant ({len(filtered_theorems)} теорем)")
+        for idx, thm in enumerate(filtered_theorems, 1):
+            with st.expander(f"{idx}. [{thm.get('category', 'Матанализ')}] {thm['theorem']}"):
+                st.caption(f"**Источник**: {thm.get('source', '')}")
                 if thm.get("latex_formula"):
                     st.latex(thm["latex_formula"])
-                st.write(thm["content"])
-                if thm.get("citation"):
-                    st.caption(thm["citation"])
+                st.markdown(thm.get("content", ""))
+                if thm.get("tags"):
+                    st.write(f"Теги: `{'`, `'.join(thm['tags'])}`")
 
     with tab5:
         st.subheader("Proof Graph & State Dump")

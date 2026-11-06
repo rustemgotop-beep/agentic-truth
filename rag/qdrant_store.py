@@ -45,10 +45,11 @@ class QdrantMathStore:
         self._ensure_indexed()
 
     def _format_text_for_embedding(self, item: Dict[str, Any]) -> str:
-        """Объединяет заголовок, теги, формулы, контент и цитату для максимальной релевантности поиска."""
+        """Объединяет заголовок, категорию, теги, формулы, контент и цитату для максимальной релевантности поиска."""
+        category = item.get("category", "")
         tags = " ".join(item.get("tags", []))
         formula = item.get("latex_formula", "")
-        return f"{item.get('theorem', '')} {tags} {formula} {item.get('content', '')} {item.get('citation', '')}"
+        return f"{item.get('theorem', '')} {category} {tags} {formula} {item.get('content', '')} {item.get('citation', '')}"
 
     def _fit_vectorizer(self):
         """Обучает векторизатор на всех зарегистрированных теоремах."""
@@ -131,6 +132,7 @@ class QdrantMathStore:
                     results.append({
                         "id": pt.payload.get("id", str(pt.id)),
                         "score": round(score, 4),
+                        "category": pt.payload.get("category", "Математический анализ"),
                         "theorem": pt.payload.get("theorem", ""),
                         "source": pt.payload.get("source", ""),
                         "content": pt.payload.get("content", ""),
@@ -142,6 +144,15 @@ class QdrantMathStore:
         except Exception as e:
             print(f"⚠️ Ошибка при поиске в Qdrant: {e}")
             return []
+
+    def get_categories(self) -> List[str]:
+        """Возвращает уникальные разделы математического анализа из базы."""
+        cats = []
+        for t in self.theorems_registry:
+            cat = t.get("category", "Математический анализ")
+            if cat not in cats:
+                cats.append(cat)
+        return cats
 
     def get_theorem_by_id(self, theorem_id: str) -> Optional[Dict[str, Any]]:
         """Поиск теоремы по её уникальному идентификатору."""
