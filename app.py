@@ -8,6 +8,68 @@ st.set_page_config(
     layout="wide"
 )
 
+
+def build_dot_graph(graph_data: dict) -> str:
+    """Генерирует граф DOT для интерактивной визуализации Evidence Graph по разделу 6 ТЗ."""
+    lines = [
+        "digraph EvidenceGraph {",
+        "  rankdir=LR;",
+        '  node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize="12", margin="0.2,0.1"];',
+        '  edge [fontname="Helvetica", fontsize="10", color="#455A64"];'
+    ]
+    color_map = {
+        "Source": ('#E1F5FE', '#0288D1'),        # Голубой: первоисточники (Зорич, Фихтенгольц)
+        "Evidence": ('#E8F5E9', '#2E7D32'),      # Зеленый: условия и шаги доказательства
+        "Verification": ('#FFF9C4', '#F57F17'),  # Желтый: аудит SymPy
+        "Claim": ('#EDE7F6', '#512DA8')          # Фиолетовый: целевая теорема
+    }
+
+    nodes = graph_data.get("nodes", [])
+    for n in nodes:
+        nid = str(n.get("id", ""))
+        label = str(n.get("label", nid)).replace('"', '\\"').replace("\n", " ")
+        ntype = n.get("type", "Evidence")
+        bg, border = color_map.get(ntype, ('#F5F5F5', '#616161'))
+        lines.append(f'  "{nid}" [label="{label}", fillcolor="{bg}", color="{border}"];')
+
+    edges = graph_data.get("edges", [])
+    for e in edges:
+        u = str(e.get("from", ""))
+        v = str(e.get("to", ""))
+        rel = str(e.get("relation", ""))
+        lines.append(f'  "{u}" -> "{v}" [label="{rel}"];')
+
+    lines.append("}")
+    return "\n".join(lines)
+
+
+def export_to_latex(query: str, pro_evidence: str, sympy_code: str, verdict: str) -> str:
+    """Формирует готовый компилируемый LaTeX-документ (.tex)."""
+    return rf"""\documentclass[12pt,a4paper]{{article}}
+\usepackage[utf8]{{inputenc}}
+\usepackage[russian]{{babel}}
+\usepackage{{amsmath, amssymb, amsthm}}
+\usepackage{{geometry}}
+\geometry{{margin=2cm}}
+
+\title{{Академическое доказательство: {query}}}
+\author{{Agentic Truth AI (Prover Agent: Григорий Коценко)}}
+\date{{\today}}
+
+\begin{{document}}
+\maketitle
+
+\section*{{Результат верификации}}
+\textbf{{Итоговый вердикт}}: {verdict} \\
+\textbf{{Символьный аудит SymPy}}: \texttt{{{sympy_code}}}
+
+\section*{{Текст доказательства}}
+{pro_evidence}
+
+\end{{document}}
+"""
+
+
 # --- Боковая панель: Векторная БД Qdrant & Настройки ---
 with st.sidebar:
     st.header("🗄️ Векторная БД Qdrant")
@@ -83,12 +145,35 @@ if st.button("🚀 Доказать и верифицировать", type="prim
         "🧮 Символьный аудит SymPy",
         "🕵️ Аудит Скептика и Судьи",
         "📚 Векторная база Qdrant (RAG)",
-        "🌐 Граф рассуждений (JSON)"
+        "🌐 Граф обоснования (Evidence Graph)"
     ])
 
     with tab1:
         st.subheader("Строгое аналитическое доказательство")
         st.markdown(result.get("pro_evidence", ""))
+
+        st.divider()
+        col_down1, col_down2 = st.columns(2)
+        with col_down1:
+            tex_content = export_to_latex(
+                query=query,
+                pro_evidence=result.get("pro_evidence", ""),
+                sympy_code=result.get("sympy_code", ""),
+                verdict=result.get("verdict", "ACCEPT")
+            )
+            st.download_button(
+                label="📥 Скачать документ LaTeX (.tex)",
+                data=tex_content,
+                file_name="proof.tex",
+                mime="text/plain"
+            )
+        with col_down2:
+            st.download_button(
+                label="📄 Скачать отчет Markdown (.md)",
+                data=result.get("pro_evidence", ""),
+                file_name="proof.md",
+                mime="text/markdown"
+            )
 
     with tab2:
         st.subheader("Формальная символьная верификация (SymPy Tools)")
@@ -107,7 +192,7 @@ if st.button("🚀 Доказать и верифицировать", type="prim
             st.warning(f"⚖️ Вердикт Судьи: **{verdict}** (Требуется доработка)")
 
     with tab4:
-        st.subheader("Найденные фрагменты из академических источников")
+        st.subheader("Найденные фрагменты из академических первоисточников")
         retrieved = result.get("retrieved_chunks", [])
         if retrieved:
             for idx, chunk in enumerate(retrieved, 1):
@@ -128,5 +213,20 @@ if st.button("🚀 Доказать и верифицировать", type="prim
                     st.write(f"Теги: `{'`, `'.join(thm['tags'])}`")
 
     with tab5:
-        st.subheader("Proof Graph & State Dump")
-        st.json(result.get("proof_graph", {}))
+        st.subheader("Интерактивная визуализация Evidence Graph (Раздел 6 ТЗ)")
+        p_graph = result.get("proof_graph", {})
+        if p_graph and p_graph.get("nodes"):
+            dot_code = build_dot_graph(p_graph)
+            st.graphviz_chart(dot_code)
+
+            col1, col2, col3, col4 = st.columns(4)
+            col1.markdown("🔵 **Source**: Первоисточники (RAG)")
+            col2.markdown("🟢 **Evidence**: Условия и доказательство")
+            col3.markdown("🟡 **Verification**: Аудит SymPy")
+            col4.markdown("🟣 **Claim**: Целевая теорема")
+
+            st.divider()
+            with st.expander("🔍 Посмотреть структуру графа в формате JSON"):
+                st.json(p_graph)
+        else:
+            st.info("Граф связей пока не сгенерирован.")
