@@ -17,31 +17,15 @@ def get_gigachat_llm(temperature: float = 0.1):
     if credentials:
         try:
             from langchain_gigachat.chat_models import GigaChat
-            import gigachat
-
-            # Попытка динамически определить доступную модель на аккаунте
-            selected_model = model
-            try:
-                with gigachat.GigaChat(
-                    credentials=credentials,
-                    verify_ssl_certs=config.verify_ssl_certs,
-                    scope=scope,
-                    base_url=config.gigachat_base_url
-                ) as client:
-                    models_data = client.get_models().data
-                    available = [m.id_ for m in models_data if "embed" not in m.id_.lower()]
-                    if available:
-                        selected_model = available[0]
-            except Exception:
-                pass
 
             return GigaChat(
                 credentials=credentials,
                 verify_ssl_certs=config.verify_ssl_certs,
                 scope=scope,
-                model=selected_model,
+                model=model,
                 base_url=config.gigachat_base_url,
-                temperature=temperature
+                temperature=temperature,
+                timeout=30.0
             )
         except Exception as e:
             print(f"⚠️ Ошибка инициализации GigaChat: {e}")
