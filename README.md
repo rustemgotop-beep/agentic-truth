@@ -27,22 +27,45 @@ agentic-truth/
 ├── tools/                      # Инструменты агентов
 │   └── sympy_verifier.py       # Безопасный символьный аудит формул (SymPy Tools)
 │
-├── rag/                        # База знаний и поиск
-│   ├── corpus.py               # Академический мини-корпус (Зорич, Фихтенгольц, Кудрявцев)
-│   └── retriever.py            # Поисковый слой (Локальный корпус + Tavily Search)
+├── rag/                        # Векторная база знаний Qdrant (40+ теорем) и ретривер
+│   ├── qdrant_store.py         # Векторное хранилище Qdrant (Local Embedded, 9500+ dims)
+│   ├── retriever.py            # Поисковый слой (Multi-Query Qdrant + дедупликация)
+│   └── corpus.py               # Академический мини-корпус (Зорич, Фихтенгольц, Кудрявцев)
 │
-├── agents/                     # Модули агентов (5 ролей команды)
-│   ├── prover/                 # ⭐️ [PROVER AGENT] Григорий Коценко (ТВОЙ АГЕНТ)
+├── agents/                     # Модульная Clean Architecture (все 5 ролей команды)
+│   ├── orchestrator/           # 🎯 [ORCHESTRATOR] Рустем Галеев (Планировщик, Multi-Query RAG)
+│   │   ├── agent.py            # Узел orchestrator_node, классификация задач и генерация гипотез
+│   │   ├── prompts.py          # Промпты декомпозиции запросов
+│   │   └── __init__.py         # Экспорт orchestrator_node
+│   ├── prover/                 # 📐 [PROVER AGENT] Григорий Коценко (ТВОЙ АГЕНТ)
 │   │   ├── agent.py            # Трехстадийный Prover Subgraph (Decompose -> SymPy -> Synthesize)
-│   │   ├── prompts.py          # Академические промпты для GigaChat (LaTeX, цитаты)
+│   │   ├── prompts.py          # Академические промпты для GigaChat (LaTeX, Evidence Graph)
 │   │   └── __init__.py         # Экспорт prover_subgraph и prover_node
-│   ├── orchestrator.py         # Интерфейс/заглушка для Рустема Галеева (Orchestrator)
-│   ├── skeptic.py              # Интерфейс/заглушка для Степана Иванова (Skeptic)
-│   ├── judge.py                # Интерфейс/заглушка для Сергея Галкина (Judge)
-│   └── test_agent.py           # Интерфейс/заглушка для Евгения Рудко (Test Agent / QA)
+│   ├── skeptic/                # 🕵️ [SKEPTIC AGENT] Степан Иванов (Red-Team аудит)
+│   │   ├── agent.py            # Узел skeptic_node, аудит краевых условий
+│   │   ├── catalog.py          # Реестр математических патологий и контрпримеров (|x|, sgn, 1/x...)
+│   │   ├── prompts.py          # Промпты поиска брешей доказательства
+│   │   └── __init__.py         # Экспорт skeptic_node
+│   ├── judge/                  # ⚖️ [JUDGE AGENT] Сергей Галкин (Арбитраж и рефлексия)
+│   │   ├── agent.py            # Узел judge_node, скоринг доверия и арбитраж
+│   │   ├── prompts.py          # Промпты вердикта (ACCEPT/REVISE)
+│   │   └── __init__.py         # Экспорт judge_node и judge_router
+│   └── tester/                 # 🧪 [QA LEAD] Евгений Рудко (Evaluation Harness & бенчмарк)
+│       ├── agent.py            # Класс TesterAgent для управления оценкой
+│       ├── benchmark.py        # Сквозной раннер бенчмарков с замером Latency и SymPy Rate
+│       ├── dataset.py          # Золотой набор академических тестов (BENCHMARK_CASES)
+│       ├── metrics.py          # Расчет метрик качества и генерация академического отчета
+│       └── __init__.py         # Экспорт run_benchmark_suite, BENCHMARK_CASES, TesterAgent
+│
+├── tests/                      # Полный набор модульных и интеграционных тестов (18 тестов)
+│   ├── test_database.py        # Тесты векторной базы Qdrant и семантического поиска
+│   ├── test_orchestrator.py    # Тесты планировщика и Multi-Query ретривера (Галеев)
+│   ├── test_skeptic.py         # Тесты контрпримеров и поиска брешей (Иванов)
+│   ├── test_judge.py           # Тесты арбитража и петли рефлексии (Галкин)
+│   └── test_benchmark.py       # Тесты Evaluation Harness и расчет метрик (Рудко)
 │
 ├── main.py                     # Оркестрация основного графа LangGraph и CLI запуск
-└── app.py                      # Интерактивный Web UI на Streamlit
+└── app.py                      # Интерактивный Web UI (Доказательство + Стенд бенчмарков QA)
 ```
 
 ---

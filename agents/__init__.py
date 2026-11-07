@@ -11,7 +11,7 @@ from agents.orchestrator import orchestrator_node
 from agents.prover import prover_subgraph, prover_node
 from agents.skeptic import skeptic_node
 from agents.judge import judge_node, judge_router
-from agents.tester import run_benchmark_suite, BENCHMARK_CASES
+from agents.tester import run_benchmark_suite, BENCHMARK_CASES, TesterAgent
 
 __all__ = [
     "orchestrator_node",
@@ -21,5 +21,6 @@ __all__ = [
     "judge_node",
     "judge_router",
     "run_benchmark_suite",
-    "BENCHMARK_CASES"
+    "BENCHMARK_CASES",
+    "TesterAgent"
 ]
