@@ -8,45 +8,11 @@ Orchestrator / Coordinator Agent (Рустем Галеев: Task Planning & Mul
 """
 import json
 import re
-from typing import Dict, Any, List, Tuple
-from langchain_core.prompts import ChatPromptTemplate
+from typing import Dict, Any, List
 from core.state import State
 from core.llm import get_gigachat_llm
-from rag import retrieve_multi_query_knowledge, retrieve_math_knowledge
-
-ORCHESTRATOR_SYSTEM_PROMPT = """Ты — Ведущий Координатор и Архитектор рассуждений (Orchestrator Agent) в мультиагентной системе Agentic Truth.
-Твоя задача — проанализировать входящий математический запрос, классифицировать тип задачи, выдвинуть рабочие гипотезы и сгенерировать точные поисковые подзапросы (Sub-queries) для извлечения вспомогательных лемм и теорем из базы первоисточников (Зорич, Фихтенгольц).
-
-ФОРМАТ ОТВЕТА (СТРОГО ВАЛИДНЫЙ JSON БЕЗ ЛИШНЕГО ТЕКСТА):
-{{
-  "task_type": "prove_theorem",
-  "hypotheses": [
-    "Утверждение справедливо при выполнении условий непрерывности и гладкости",
-    "Доказательство опирается на теорему о среднем значении или принцип полноты"
-  ],
-  "sub_queries": [
-    "Точная формулировка теоремы и условия применимости",
-    "Вспомогательная лемма или теорема-опора",
-    "Формальные определения граничных условий"
-  ],
-  "plan_summary": "Краткий план работы подграфа Prover и Skeptic"
-}}
-
-ТИПЫ ЗАДАЧ (task_type):
-- "prove_theorem": Строгое аналитическое доказательство теоремы
-- "find_counterexample": Фальсификация неверного утверждения и построение контрпримера
-- "verify_identity": Формальная символьная проверка тождества через SymPy
-- "concept_explanation": Разбор и объяснение фундаментального понятия"""
-
-ORCHESTRATOR_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", ORCHESTRATOR_SYSTEM_PROMPT),
-    ("user", """Проанализируй математический запрос:
-ЗАПРОС: {query}
-ИТЕРАЦИЯ: #{iteration}
-ОТЗЫВ СУДЬИ (если итерация > 1): {judge_feedback}
-
-Сформируй план, гипотезы и поисковые подзапросы строго в формате JSON.""")
-])
+from rag import retrieve_multi_query_knowledge
+from agents.orchestrator.prompts import ORCHESTRATOR_PROMPT
 
 
 def _parse_orchestrator_json(raw_text: str) -> Dict[str, Any]:
@@ -172,7 +138,6 @@ def orchestrator_node(state: State) -> Dict[str, Any]:
         print(f"   ↳ #{idx}: {sq}")
 
     # 2. Multi-Query RAG-поиск через Qdrant
-    # Если это первая итерация или контекст еще не собран — выполняем глубокий поиск
     if not state.get("context_text") or iteration > 1:
         print("📚 [RAG Multi-Query] Поиск первоисточников по комплексу подзапросов в Qdrant...")
         context_text, chunks = retrieve_multi_query_knowledge(sub_queries, max_total_chunks=3)

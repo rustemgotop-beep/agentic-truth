@@ -8,69 +8,19 @@ Judge / Verifier Agent (Сергей Галкин: Fact Check & Arbitrage).
 """
 import json
 import re
-from typing import Dict, Any, Tuple
-from langchain_core.prompts import ChatPromptTemplate
+from typing import Dict, Any
 from core.state import State
 from core.llm import get_gigachat_llm
-
-JUDGE_SYSTEM_PROMPT = """Ты — Главный Арбитр и Математический Верификатор (Judge Agent) в мультиагентной системе Agentic Truth.
-Твоя задача — объективно оценить математическое доказательство, сопоставить его с замечаниями Скептика и отчетом SymPy, и вынести итоговый вердикт.
-
-КРИТЕРИИ АУДИТА:
-1. Полнота условий: Указаны ли все краевые предпосылки (непрерывность на отрезке, замкнутость множества, гладкость)?
-2. Логическая строгость: Нет ли логических скачков между шагами?
-3. Символьная верификация: Подтвердил ли модуль SymPy ключевые тождества?
-4. Устойчивость к критике: Являются ли замечания Скептика критической ошибкой или Prover корректно учел все условия?
-5. Опора на первоисточники: Согласуется ли вывод с классическими формулировками (Зорич, Фихтенгольц, Кудрявцев)?
-
-ФОРМАТ ОТВЕТА (ВЕРНИ СТРОГО ВАЛИДНЫЙ JSON БЕЗ ЛИШНЕГО ТЕКСТА):
-{{
-  "confidence_score": 0.95,
-  "verdict": "ACCEPT",
-  "review_summary": "Доказательство строгое, все предпосылки оговорены, SymPy подтвердил результат.",
-  "strengths": ["Четкая фиксация условий", "Символьная верификация"],
-  "flaws": ["Замечание по границе отрезка"],
-  "recommendations": "Рекомендации при необходимости доработки"
-}}
-
-ПРАВИЛО ВЕРДИКТА:
-- "ACCEPT": Доказательство корректно, условия соблюдены (confidence >= 0.80).
-- "REVISE": Обнаружен критический логический скачок, контрпример разрушает доказательство или забыты ключевые предпосылки (confidence < 0.80)."""
-
-JUDGE_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", JUDGE_SYSTEM_PROMPT),
-    ("user", """Оцени следующее математическое доказательство:
-
-ТЕОРЕМА / ЗАПРОС:
-{query}
-
-ИТЕРАЦИЯ: #{iteration}
-
-ПРЕДПОСЫЛКИ PROVER:
-{assumptions}
-
-ДОКАЗАТЕЛЬСТВО PROVER:
-{pro_evidence}
-
-ФОРМАЛЬНЫЙ АУДИТ SYMPY:
-{sympy_result}
-
-КРИТИКА И КОНТРПРИМЕРЫ SKEPTIC:
-{con_evidence}
-
-Вынеси решение строго в формате JSON.""")
-])
+from agents.judge.prompts import JUDGE_PROMPT
 
 
 def _parse_judge_json(raw_text: str) -> Dict[str, Any]:
     """Надежный парсер JSON из ответа модели с защитой от лишнего Markdown-форматирования."""
     clean_text = raw_text.strip()
-    # Извлекаем JSON из блоков ```json ... ```
     match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", clean_text, re.DOTALL)
     if match:
         clean_text = match.group(1)
     else:
-        # Ищем первую и последнюю фигурные скобки
         start = clean_text.find("{")
         end = clean_text.rfind("}")
         if start != -1 and end != -1 and end > start:
@@ -79,7 +29,6 @@ def _parse_judge_json(raw_text: str) -> Dict[str, Any]:
     try:
         return json.loads(clean_text)
     except Exception:
-        # Эвристический парсинг, если JSON поврежден
         verdict = "REVISE" if "REVISE" in raw_text.upper() else "ACCEPT"
         conf = 0.70 if verdict == "REVISE" else 0.90
         return {
@@ -99,7 +48,6 @@ def _heuristic_judge_fallback(state: State) -> Dict[str, Any]:
     sympy_res = state.get("sympy_result", "")
     iteration = state.get("iteration", 1)
 
-    # Проверяем признаки хорошего доказательства
     score = 0.75
     flaws = []
     strengths = []
@@ -114,7 +62,6 @@ def _heuristic_judge_fallback(state: State) -> Dict[str, Any]:
 
     if con and ("контрпример" in con.lower() or "уязвимост" in con.lower()):
         if iteration == 1 and ("нарушен" in con.lower() or "разрыв" in con.lower()):
-            # На 1-й итерации при наличии серьезных контрпримеров оправдан возврат
             score -= 0.15
             flaws.append("Скептик указал на чувствительность к краевым условиям")
 
@@ -165,7 +112,6 @@ def judge_node(state: State) -> Dict[str, Any]:
     confidence = float(eval_data.get("confidence_score", 0.90))
     summary = eval_data.get("review_summary", "Доказательство проверено.")
 
-    # Если достигнут лимит итераций (2 раунда по ТЗ), вердикт фиксируется как окончательный
     if iteration >= 2 and verdict == "REVISE":
         verdict = "ACCEPT"
         summary += " (Утверждено на 2-й итерации после ревизии замечаний)."
@@ -173,7 +119,6 @@ def judge_node(state: State) -> Dict[str, Any]:
     print(f"📊 [Judge Agent] Вердикт: {verdict} | Уверенность: {int(confidence * 100)}%")
     print(f"📝 [Judge Agent] Резюме: {summary}")
 
-    # Формируем расширенный итоговый ответ для пользователя (Final Answer)
     badge = "✅ ACCEPT (Принято)" if verdict == "ACCEPT" else "🔄 REVISE (Отправлено на доработку)"
     final_answer = (
         f"## 🎓 Итоговый вердикт системы: {badge} (Достоверность: {int(confidence * 100)}%)\n\n"
@@ -207,7 +152,6 @@ def judge_router(state: State) -> str:
     verdict = state.get("verdict", "ACCEPT")
     iteration = state.get("iteration", 1)
 
-    # Максимум 2 раунда исследований согласно разделу 5 ТЗ
     if verdict == "ACCEPT" or iteration >= 2:
         print(f"🏁 [Judge Router] Завершение графа на итерации #{iteration} с вердиктом '{verdict}'.")
         return "finish"
