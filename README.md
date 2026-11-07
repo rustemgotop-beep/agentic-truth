@@ -1,6 +1,12 @@
 # 🧮 Agentic Truth — Помощник по теоретическому матанализу
 
-> **Проект Команды № 14 (КП1 / КП2)**  
+[![CI / Evaluation Suite](https://github.com/rustemgotop-beep/agentic-truth/actions/workflows/tests.yml/badge.svg)](https://github.com/rustemgotop-beep/agentic-truth/actions/workflows/tests.yml)
+[![Tests Passing](https://img.shields.io/badge/tests-18%20passed-brightgreen.svg)](https://github.com/rustemgotop-beep/agentic-truth)
+[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue.svg)](https://www.python.org/)
+[![Qdrant Vector DB](https://img.shields.io/badge/Qdrant-40%2B%20theorems-red.svg)](https://qdrant.tech/)
+[![Clean Architecture](https://img.shields.io/badge/architecture-5%20agents%20modular-orange.svg)](https://github.com/rustemgotop-beep/agentic-truth)
+
+> **Проект Команды № 14 (КП1 / КП2 / КП3)**  
 > Мультиагентная верификация доказательств, Citation-First RAG и формальный символьный аудит логики на базе **LangGraph**, **GigaChat** и **SymPy**.
 
 ---
@@ -11,18 +17,17 @@
 
 ```
 agentic-truth/
+├── .github/workflows/          # Автоматический CI/CD (GitHub Actions)
+│   └── tests.yml               # Прогон 18 тестов и бенчмарка на Python 3.10 и 3.11
 ├── .gitignore                  # Игнорирование .venv, .env, __pycache__, архивов
 ├── .env.example                # Шаблон конфигурации для GigaChat и Tavily
 ├── requirements.txt            # Фиксированные зависимости (GigaChat, LangGraph, SymPy)
 ├── README.md                   # Документация архитектуры и руководство запуска
 │
-├── config/                     # Настройки проекта
-│   └── settings.py             # Централизованная конфигурация и чтение .env
-│
 ├── core/                       # Ядро системы
 │   ├── state.py                # Общий контракт состояния графа (State TypedDict)
 │   ├── llm.py                  # Фабрика моделей: СТРОГО GigaChat (Сбер)
-│   └── config.py               # Конфигурационные параметры
+│   └── config.py               # Конфигурационные параметры и чтение .env
 │
 ├── tools/                      # Инструменты агентов
 │   └── sympy_verifier.py       # Безопасный символьный аудит формул (SymPy Tools)
