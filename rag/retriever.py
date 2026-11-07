@@ -50,3 +50,48 @@ def retrieve_math_knowledge(query: str, top_k: int = 3) -> Tuple[str, List[Sourc
     ]
     context_text = "\n\n---\n\n".join(context_blocks)
     return context_text, chunks
+
+
+def retrieve_multi_query_knowledge(queries: List[str], max_total_chunks: int = 4) -> Tuple[str, List[SourceChunk]]:
+    """
+    Продвинутый Multi-Query ретривер для Orchestrator:
+    Принимает список подзапросов, ищет релевантные теоремы в Qdrant,
+    выполняет слияние и дедупликацию по источникам.
+    """
+    seen_theorems = set()
+    all_chunks: List[SourceChunk] = []
+
+    for q in queries:
+        if not q or not q.strip():
+            continue
+        qdrant_results = qdrant_store.search(q, top_k=2)
+        for res in qdrant_results:
+            thm_key = res.get("theorem", "")
+            if thm_key in seen_theorems:
+                continue
+            seen_theorems.add(thm_key)
+
+            formula_part = f"Формула: {res['latex_formula']}\n" if res.get("latex_formula") else ""
+            citation_part = f"Цитата: {res['citation']}\n" if res.get("citation") else ""
+            content_text = f"Теорема: {res['theorem']}\n{formula_part}{citation_part}Содержание: {res['content']}"
+
+            all_chunks.append({
+                "source": res["source"],
+                "content": content_text.strip(),
+                "origin": f"Векторная БД Qdrant (score={res['score']:.2f})"
+            })
+            if len(all_chunks) >= max_total_chunks:
+                break
+        if len(all_chunks) >= max_total_chunks:
+            break
+
+    # Если ничего не найдено по подзапросам, фоллбэк на базовый ретривер
+    if not all_chunks and queries:
+        return retrieve_math_knowledge(queries[0], top_k=max_total_chunks)
+
+    context_blocks = [
+        f"[{c['origin']}]\nИсточник: {c['source']}\nФрагмент:\n{c['content']}"
+        for c in all_chunks
+    ]
+    context_text = "\n\n---\n\n".join(context_blocks)
+    return context_text, all_chunks

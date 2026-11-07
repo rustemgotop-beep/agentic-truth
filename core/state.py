@@ -14,9 +14,11 @@ class State(TypedDict, total=False):
     con_evidence: str
     final_answer: str
 
-    # 1. Поля Orchestrator & RAG (Member 1)
+    # 1. Поля Orchestrator & RAG (Member 1 — Рустем Галеев)
     task_type: str
     iteration: int
+    sub_queries: List[str]
+    hypotheses: List[str]
     retrieved_chunks: List[SourceChunk]
     context_text: str
 
