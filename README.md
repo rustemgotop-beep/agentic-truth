@@ -7,7 +7,6 @@
 [![Formal Verifier](https://img.shields.io/badge/formal%20math-SymPy%20AST-yellow.svg)](https://www.sympy.org/)
 [![LLM Backend](https://img.shields.io/badge/LLM-GigaChat%20(Сбер)-green.svg)](https://developers.sber.ru/portal/products/gigachat)
 [![Clean Architecture](https://img.shields.io/badge/architecture-5%20agents%20modular-orange.svg)](https://github.com/rustemgotop-beep/agentic-truth)
-[![License: MIT](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
 
 > **Проект Команды № 14 (КП1 / КП2 / КП3)**  
 > Распределенная мультиагентная система строгой верификации математических доказательств, Citation-First Multi-Query RAG на базе **Qdrant**, формального символьного аудита **SymPy AST**, Red-Team проверки контрпримерами и арбитража с петлей рефлексии (Self-Reflection Loop) на базе **LangGraph** и **GigaChat**.
