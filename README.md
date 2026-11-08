@@ -41,34 +41,28 @@
 ## 🔄 Архитектура и граф взаимодействия агентов
 
 ```mermaid
-flowchart TD
-    User([📥 Запрос пользователя]):::startNode --> Orch[🎯 Orchestrator Agent<br/><b>Рустем Галеев</b><br/><i>Классификация и Multi-Query генерация</i>]
+flowchart LR
+    User([📥 Запрос пользователя]):::startNode --> Orch[🎯 Orchestrator<br/><b>Рустем Галеев</b>]
+    Orch -.->|RAG Multi-Query| RAG[(🗄️ Qdrant DB<br/><i>40+ теорем</i>)]
     
-    Orch --> RAG[(🗄️ Векторная база Qdrant<br/><i>40+ теорем, 9500+ dims, TF-IDF</i>)]
+    Orch --> P1
     
     subgraph SubgraphProver ["📐 Prover Subgraph (Григорий Коценко)"]
-        direction TB
-        P1["1. Декомпозиция условий<br/><i>f ∈ C[a, b], f ∈ D(a, b), f(a) = f(b)</i>"]
-        P2["2. Формальный SymPy аудит<br/><i>SafeSymPyRunner AST Sandbox</i>"]
-        P3["3. Синтез доказательства<br/><i>+ Канонический Evidence Graph</i>"]
-        P1 --> P2 --> P3
+        direction LR
+        P1["1. Декомпозиция"] --> P2["2. SymPy аудит"] --> P3["3. Синтез & Evidence Graph"]
     end
     
-    RAG --> P1
-    P3 --> Skeptic[🕵️ Skeptic Red-Team Agent<br/><b>Степан Иванов</b><br/><i>Реестр математических патологий</i>]
+    P3 --> Skeptic[🕵️ Skeptic Red-Team<br/><b>Степан Иванов</b>]
+    Skeptic --> Judge[⚖️ Judge / Verifier<br/><b>Сергей Галкин</b>]
     
-    Skeptic --> Judge[⚖️ Judge / Verifier Agent<br/><b>Сергей Галкин</b><br/><i>Арбитраж и скоринг 0–100%</i>]
+    Judge -->|REVISE| Orch
+    Judge -->|ACCEPT| Out([🏁 Финальный вердикт]):::finishNode
     
-    Judge -->|Вердикт: REVISE<br/>Итерация #1| LoopNode["🔄 Self-Reflection Loop<br/><i>Передача judge_feedback и con_evidence</i>"]
-    LoopNode --> Orch
-    
-    Judge -->|Вердикт: ACCEPT<br/>или макс. 2 итерации| Out([🏁 Финальный вердикт & Доказательство]):::finishNode
-    
-    Out -.-> UI[💻 Web UI Streamlit & LaTeX Export]
-    Out -.-> QA[🧪 QA Benchmark Harness<br/><b>Евгений Рудко</b>]
+    Out -.-> UI[💻 Web UI Streamlit]
+    Out -.-> QA[🧪 QA Benchmark (Е. Рудко)]
 
-    classDef startNode fill:#E1F5FE,stroke:#0288D1,stroke-width:2px;
-    classDef finishNode fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px;
+    classDef startNode fill:#0288D1,stroke:#01579B,stroke-width:2px,color:#FFFFFF;
+    classDef finishNode fill:#2E7D32,stroke:#1B5E20,stroke-width:2px,color:#FFFFFF;
 ```
 
 ---
