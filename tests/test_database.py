@@ -70,6 +70,8 @@ class TestQdrantDatabase(unittest.TestCase):
 
     def test_06_dynamic_addition(self):
         """Проверка динамического добавления новой пользовательской теоремы в реальном времени."""
+        from rag.qdrant_store import QdrantMathStore
+        isolated_store = QdrantMathStore(persistent_path=":memory:")
         new_thm = {
             "id": "cauchy_schwarz_inequality",
             "category": "Функциональный анализ и неравенства",
@@ -80,11 +82,11 @@ class TestQdrantDatabase(unittest.TestCase):
             "latex_formula": r"\left( \int_a^b f(x) g(x) dx \right)^2 \le \left( \int_a^b f^2(x) dx \right) \left( \int_a^b g^2(x) dx \right)",
             "tags": ["неравенство", "коши-буняковский", "шварц", "интеграл"]
         }
-        success = self.store.add_theorem(new_thm)
+        success = isolated_store.add_theorem(new_thm)
         self.assertTrue(success)
 
         # Проверяем, что теперь Коши-Буняковский моментально находится поиском
-        results = self.store.search("неравенство коши буняковского для интегралов", top_k=1)
+        results = isolated_store.search("неравенство коши буняковского для интегралов", top_k=1)
         self.assertTrue(len(results) > 0)
         self.assertEqual(results[0]["id"], "cauchy_schwarz_inequality")
         print(f"[Test 6 OK] Неравенство Коши-Буняковского успешно добавлено и найдено с оценкой {results[0]['score']}")

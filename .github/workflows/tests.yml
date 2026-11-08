@@ -54,12 +54,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Full Test Suite (Qdrant + 5 Agents)
+      - name: Run Unit Tests (Qdrant + 5 Agents)
         env:
           PYTHONPATH: .
           GIGACHAT_CREDENTIALS: ${{ secrets.GIGACHAT_CREDENTIALS }}
         run: |
-          python -m unittest discover -s tests -v
+          python -m unittest discover -s tests -p "test_[!b]*.py" -v
 
   evaluation-benchmark:
     name: 📊 QA Lead Evaluation Harness (Evgeny Rudko)

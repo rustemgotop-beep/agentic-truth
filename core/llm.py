@@ -1,6 +1,5 @@
 import os
 from typing import Any
-from langchain_core.language_models import FakeListLLM
 from langchain_core.runnables import RunnableLambda
 from core.config import config
 
@@ -37,6 +36,15 @@ def get_gigachat_llm(temperature: float = 0.1):
         prompt_str = prompt_input.to_string() if hasattr(prompt_input, "to_string") else str(prompt_input)
         p_lower = prompt_str.lower()
 
+        # Если вызывается Orchestrator, Skeptic или Judge в оффлайн-режиме —
+        # возбуждаем исключение, чтобы штатно сработали их профильные аналитические фоллбэки
+        if any(role in p_lower for role in [
+            "orchestrator agent",
+            "skeptic agent",
+            "judge agent"
+        ]):
+            raise RuntimeError("Offline mode: switching to specialized analytical module")
+
         # 1. Запрос на декомпозицию условий
         if "декомпозиции" in p_lower:
             if "ролл" in p_lower:
@@ -55,6 +63,16 @@ def get_gigachat_llm(temperature: float = 0.1):
                     "- Аргумент $x$ выражен в радианах\n"
                     "- Точка $x_0 = 0$ является предельной точкой области определения ($x \\neq 0$)"
                 )
+            elif "грин" in p_lower:
+                return (
+                    "- Область $D$ на плоскости ограничена кусочно-гладким контуром $\\partial D$\n"
+                    "- Функции $P(x,y)$ и $Q(x,y)$ непрерывно дифференцируемы на замкнутой области $\\bar{D}$"
+                )
+            elif "интеграл" in p_lower or "ньютон" in p_lower:
+                return (
+                    "- Функция $f(x)$ непрерывна на отрезке $[a, b]$\n"
+                    "- Функция $F(x)$ является первообразной для $f(x)$ на $[a, b]$"
+                )
             else:
                 return (
                     "- Функция $f(x)$ непрерывна на замкнутом отрезке $[a, b]$\n"
@@ -70,6 +88,12 @@ def get_gigachat_llm(temperature: float = 0.1):
                 return "sp.diff(x**2, x)"
             elif "предел" in p_lower or "sin" in p_lower:
                 return "sp.limit(sp.sin(x)/x, x, 0)"
+            elif "грин" in p_lower:
+                return "sp.integrate(sp.diff(x, x) - sp.diff(-y, y), (x, 0, 1), (y, 0, 1))"
+            elif "интеграл" in p_lower or "ньютон" in p_lower:
+                return "sp.integrate(x**2, (x, a, b))"
+            elif "тейлор" in p_lower:
+                return "sp.series(sp.exp(x), x, 0, 4)"
             else:
                 return "sp.solve(x - (a + b)/2, x)"
 

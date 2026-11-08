@@ -1,7 +1,7 @@
 # 🧮 Agentic Truth — Помощник по теоретическому матанализу
 
 [![CI / Evaluation Suite](https://github.com/rustemgotop-beep/agentic-truth/actions/workflows/tests.yml/badge.svg)](https://github.com/rustemgotop-beep/agentic-truth/actions/workflows/tests.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-18%20passed-brightgreen.svg)](https://github.com/rustemgotop-beep/agentic-truth)
+[![Tests Passing](https://img.shields.io/badge/tests-21%20passed-brightgreen.svg)](https://github.com/rustemgotop-beep/agentic-truth)
 [![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue.svg)](https://www.python.org/)
 [![Qdrant Vector DB](https://img.shields.io/badge/Qdrant-40%2B%20theorems-red.svg)](https://qdrant.tech/)
 [![Clean Architecture](https://img.shields.io/badge/architecture-5%20agents%20modular-orange.svg)](https://github.com/rustemgotop-beep/agentic-truth)
@@ -62,8 +62,9 @@ agentic-truth/
 │       ├── metrics.py          # Расчет метрик качества и генерация академического отчета
 │       └── __init__.py         # Экспорт run_benchmark_suite, BENCHMARK_CASES, TesterAgent
 │
-├── tests/                      # Полный набор модульных и интеграционных тестов (18 тестов)
+├── tests/                      # Полный набор модульных и интеграционных тестов (21 тест)
 │   ├── test_database.py        # Тесты векторной базы Qdrant и семантического поиска
+│   ├── test_prover.py          # Тесты Prover Subgraph, AST-песочницы и SymPy (Коценко)
 │   ├── test_orchestrator.py    # Тесты планировщика и Multi-Query ретривера (Галеев)
 │   ├── test_skeptic.py         # Тесты контрпримеров и поиска брешей (Иванов)
 │   ├── test_judge.py           # Тесты арбитража и петли рефлексии (Галкин)

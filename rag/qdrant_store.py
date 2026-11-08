@@ -79,7 +79,7 @@ class QdrantMathStore:
                 info = self.client.get_collection(self.collection_name)
                 existing_size = info.config.params.vectors.size
                 existing_count = self.client.count(collection_name=self.collection_name).count
-                if existing_size != self.vector_dim or existing_count < len(self.theorems_registry):
+                if existing_size != self.vector_dim or existing_count != len(self.theorems_registry):
                     recreate = True
 
             if recreate:

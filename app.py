@@ -45,9 +45,18 @@ def build_dot_graph(graph_data: dict) -> str:
 
 
 def export_to_latex(query: str, pro_evidence: str, sympy_code: str, verdict: str) -> str:
-    """Формирует готовый компилируемый LaTeX-документ (.tex)."""
+    """Формирует готовый компилируемый LaTeX-документ (.tex) с конвертацией Markdown-тегов."""
+    import re
+    body = pro_evidence
+    body = re.sub(r"^###\s+(.+)$", r"\\subsection*{\1}", body, flags=re.MULTILINE)
+    body = re.sub(r"^##\s+(.+)$", r"\\section*{\1}", body, flags=re.MULTILINE)
+    body = re.sub(r"\*\*(.+?)\*\*", r"\\textbf{\1}", body)
+    body = re.sub(r"^- (.+)$", r"\\noindent $\\bullet$ \1\\\\", body, flags=re.MULTILINE)
+    safe_sympy = sympy_code.replace("_", "\\_")
+
     return rf"""\documentclass[12pt,a4paper]{{article}}
 \usepackage[utf8]{{inputenc}}
+\usepackage[T2A]{{fontenc}}
 \usepackage[russian]{{babel}}
 \usepackage{{amsmath, amssymb, amsthm}}
 \usepackage{{geometry}}
@@ -62,10 +71,9 @@ def export_to_latex(query: str, pro_evidence: str, sympy_code: str, verdict: str
 
 \section*{{Результат верификации}}
 \textbf{{Итоговый вердикт}}: {verdict} \\
-\textbf{{Символьный аудит SymPy}}: \texttt{{{sympy_code}}}
+\textbf{{Символьный аудит SymPy}}: \texttt{{{safe_sympy}}}
 
-\section*{{Текст доказательства}}
-{pro_evidence}
+{body}
 
 \end{{document}}
 """

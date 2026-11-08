@@ -28,11 +28,17 @@ def decompose_conditions_node(state: State) -> Dict[str, Any]:
     query = state["query"]
     context = state.get("context_text", "")
     skeptic_critique = state.get("con_evidence", "")
+    judge_feedback = state.get("judge_feedback", "")
 
     revision_note = ""
-    if iteration > 1 and skeptic_critique:
-        print("🔄 [Prover] Учитываю критику Скептика для усиления предпосылок!")
-        revision_note = f"\nВНИМАНИЕ: Скептик нашел уязвимость: {skeptic_critique}. Четко зафиксируй граничные условия!"
+    if iteration > 1 and (skeptic_critique or judge_feedback):
+        print("🔄 [Prover] Учитываю критику Скептика и вердикт Судьи для усиления предпосылок!")
+        revision_note = (
+            f"\nВНИМАНИЕ (Ревизия #{iteration}):\n"
+            f"- Замечания Скептика: {skeptic_critique}\n"
+            f"- Требования Судьи: {judge_feedback}\n"
+            f"Четко зафиксируй все граничные условия!"
+        )
 
     try:
         chain = DECOMPOSITION_PROMPT | llm
@@ -68,9 +74,9 @@ def sympy_verification_node(state: State) -> Dict[str, Any]:
     proposed_code = ""
     try:
         raw_res = (SYMPY_CODE_PROMPT | llm).invoke({"query": query})
-        candidate = (raw_res.content if hasattr(raw_res, "content") else str(raw_res)).strip()
-        candidate = candidate.strip("`").replace("python", "").strip().splitlines()[0]
-        if any(fn in candidate for fn in ["sp.", "diff", "limit", "solve", "integrate", "series"]):
+        raw_text = raw_res.content if hasattr(raw_res, "content") else str(raw_res)
+        candidate = SafeSymPyRunner.extract_code_line(raw_text)
+        if any(fn in candidate for fn in ["sp.", "diff", "limit", "solve", "integrate", "series", "simplify"]):
             proposed_code = candidate
     except Exception as e:
         print(f"ℹ️ Генерация кода SymPy через LLM пропущена ({e}), задействован аналитический верификатор.")
@@ -97,14 +103,16 @@ def synthesize_proof_node(state: State) -> Dict[str, Any]:
     assumptions_formatted = "\n".join([f"- {a}" for a in assumptions_list])
     sympy_result = state.get("sympy_result", "")
     skeptic_critique = state.get("con_evidence", "")
+    judge_feedback = state.get("judge_feedback", "")
     iteration = state.get("iteration", 1)
 
     revision_instruction = ""
-    if iteration > 1 and skeptic_critique:
+    if iteration > 1 and (skeptic_critique or judge_feedback):
         revision_instruction = (
             f"\nВАЖНО (Итерация ревизии #{iteration}):\n"
-            f"Скептик указал на следующие замечания: {skeptic_critique}.\n"
-            f"Обязательно устрани эти замечания в шагах доказательства!"
+            f"- Замечания Скептика: {skeptic_critique}\n"
+            f"- Требования Судьи: {judge_feedback}\n"
+            f"Обязательно устрани эти замечания и учти рекомендации Судьи в шагах доказательства!"
         )
 
     try:
