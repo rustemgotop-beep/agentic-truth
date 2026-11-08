@@ -30,11 +30,11 @@
 
 | Роль | Участник | Модуль | Ключевая ответственность |
 | :--- | :--- | :--- | :--- |
-| **Member 1: Orchestrator Lead** | **Рустем Галеев** | [`agents/orchestrator/`](file:///Users/grigoriy/PycharmProjects/agentic-truth/agents/orchestrator/) | Классификация задач (`prove_theorem`, `find_counterexample`, `verify_identity`), декомпозиция на 3 подзапроса, Multi-Query поиск в Qdrant с дедупликацией. |
-| **Member 2: Prover Agent** | **Григорий Коценко** | [`agents/prover/`](file:///Users/grigoriy/PycharmProjects/agentic-truth/agents/prover/) | 3-стадийный Prover Subgraph (Декомпозиция предпосылок $\to$ формальный SymPy AST аудит $\to$ синтез доказательства), построение Evidence Graph, экспорт в компилируемый LaTeX. |
-| **Member 3: Skeptic Agent** | **Степан Иванов** | [`agents/skeptic/`](file:///Users/grigoriy/PycharmProjects/agentic-truth/agents/skeptic/) | Red-Team аудит логических брешей (Gaps) и подбор патологических контрпримеров ($f(x)=\|x\|$, $\operatorname{sgn}(x)$, $1/x$, функция Пеано — Шварца). |
-| **Member 4: Judge Agent** | **Сергей Галкин** | [`agents/judge/`](file:///Users/grigoriy/PycharmProjects/agentic-truth/agents/judge/) | Интеллектуальный арбитраж, скоринг уверенности (0–100%), условный роутер петли рефлексии (`ACCEPT` / `REVISE`) с лимитом 2 итераций по ТЗ. |
-| **Member 5: QA Lead** | **Евгений Рудко** | [`agents/tester/`](file:///Users/grigoriy/PycharmProjects/agentic-truth/agents/tester/) | Автоматизированный стенд тестирования (Evaluation Harness), золотой датасет бенчмарков, замер задержки (Latency), SymPy Verification Rate и Groundedness Rate. |
+| **Member 1: Orchestrator Lead** | **Рустем Галеев** | [`agents/orchestrator/`](agents/orchestrator/) | Классификация задач (`prove_theorem`, `find_counterexample`, `verify_identity`), декомпозиция на 3 подзапроса, Multi-Query поиск в Qdrant с дедупликацией. |
+| **Member 2: Prover Agent** | **Григорий Коценко** | [`agents/prover/`](agents/prover/) | 3-стадийный Prover Subgraph (Декомпозиция предпосылок $\to$ формальный SymPy AST аудит $\to$ синтез доказательства), построение Evidence Graph, экспорт в компилируемый LaTeX. |
+| **Member 3: Skeptic Agent** | **Степан Иванов** | [`agents/skeptic/`](agents/skeptic/) | Red-Team аудит логических брешей (Gaps) и подбор патологических контрпримеров (модуль $\|x\|$, функция $\text{sgn}(x)$, $1/x$, функция Пеано — Шварца). |
+| **Member 4: Judge Agent** | **Сергей Галкин** | [`agents/judge/`](agents/judge/) | Интеллектуальный арбитраж, скоринг уверенности (0–100%), условный роутер петли рефлексии (`ACCEPT` / `REVISE`) с лимитом 2 итераций по ТЗ. |
+| **Member 5: QA Lead** | **Евгений Рудко** | [`agents/tester/`](agents/tester/) | Автоматизированный стенд тестирования (Evaluation Harness), золотой датасет бенчмарков, замер задержки (Latency), SymPy Verification Rate и Groundedness Rate. |
 
 ---
 
@@ -147,7 +147,7 @@ agentic-truth/
 3. `synthesize_proof_node`: синтезирует пошаговое математическое доказательство в LaTeX с цитированием первоисточников и строит структуру **Evidence Graph**.
 
 ### 2. Безопасная AST-песочница SafeSymPyRunner
-Символьные вычисления выполняются через модуль [`tools/sympy_verifier.py`](file:///Users/grigoriy/PycharmProjects/agentic-truth/tools/sympy_verifier.py):
+Символьные вычисления выполняются через модуль [`tools/sympy_verifier.py`](tools/sympy_verifier.py):
 * Синтаксическое дерево (AST) проверяется до исполнения: запрещены узлы `ast.Import`, `ast.ImportFrom`, `ast.Lambda`, `ast.ListComp`, генераторы.
 * Заблокирован обход песочницы через обращение к служебным атрибутам (`isinstance(node, ast.Attribute) and node.attr.startswith("__")`) и именам (`x.__class__.__base__`).
 * В `eval` передается строго ограниченный словарь встроенных функций `ALLOWED_BUILTINS = {"abs", "min", "max", "round"}`.
@@ -177,13 +177,13 @@ agentic-truth/
 ### 5. Реестр патологий Скептика (Red-Team Catalog)
 Скептик Степан Иванов опирается на строгий математический каталог контрпримеров:
 * **Теорема Ролля**: $f(x) = |x|$ на $[-1, 1]$ (непрерывна, $f(-1)=f(1)$, но излом в $x=0$ лишает производной).
-* **Больцано — Коши**: $f(x) = \operatorname{sgn}(x)$ на $[-1, 1]$ при $f(0)=1$ (разрыв первого рода, в ноль не обращается).
+* **Больцано — Коши**: $f(x) = \text{sgn}(x)$ на $[-1, 1]$ при $f(0)=1$ (разрыв первого рода, в ноль не обращается).
 * **Вейерштрасс о максимуме**: $f(x) = 1/x$ на $(0, 1]$ (полуинтервал не компактен, функция неограничена).
 * **Теорема Шварца о смешанных производных**: функция Пеано — Шварца $f(x,y) = \frac{xy(x^2-y^2)}{x^2+y^2}$ ($f''_{xy} \neq f''_{yx}$ в нуле).
 * **Гармонический ряд**: $\sum \frac{1}{n}$ (общий член стремится к 0, но ряд расходится).
 
 ### 6. Стенд тестирования QA Lead (Evaluation Harness)
-Модуль Евгения Рудко [`agents/tester/`](file:///Users/grigoriy/PycharmProjects/agentic-truth/agents/tester/) автоматически замеряет ключевые метрики (KPI):
+Модуль Евгения Рудко [`agents/tester/`](agents/tester/) автоматически замеряет ключевые метрики (KPI):
 * **Average Latency**: среднее время полного цикла доказательства и верификации (в секундах).
 * **SymPy Verification Rate**: процент кейсов, подтвержденных формальным символьным расчетом.
 * **Groundedness Rate**: процент утверждений, привязанных к академическим учебникам из базы Qdrant.
@@ -279,7 +279,7 @@ python -m unittest tests/test_benchmark.py -v
 
 ## ⚙️ Непрерывная интеграция (CI / CD)
 
-В репозитории настроен автоматический пайплайн **GitHub Actions** ([`.github/workflows/tests.yml`](file:///Users/grigoriy/PycharmProjects/agentic-truth/.github/workflows/tests.yml)), запускаемый при каждом пуше и Pull Request:
+В репозитории настроен автоматический пайплайн **GitHub Actions** ([`.github/workflows/tests.yml`](.github/workflows/tests.yml)), запускаемый при каждом пуше и Pull Request:
 1. **🔍 Syntax & Bytecode Compilation**: валидация синтаксиса Python и компиляция всех файлов проекта.
 2. **🧪 Unit & Integration Tests**: параллельное тестирование на матрице версий **Python 3.10** и **Python 3.11** с кэшированием зависимостей `pip`.
 3. **📊 QA Lead Evaluation Harness**: автоматический прогон академического бенчмарка тестовых кейсов с проверкой расчета метрик.
