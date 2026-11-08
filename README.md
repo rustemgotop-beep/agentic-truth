@@ -42,8 +42,8 @@
 
 ```mermaid
 flowchart LR
-    User([📥 Запрос пользователя]):::startNode --> Orch[🎯 Orchestrator<br/><b>Рустем Галеев</b>]
-    Orch -.->|RAG Multi-Query| RAG[(🗄️ Qdrant DB<br/><i>40+ теорем</i>)]
+    User(["📥 Запрос пользователя"]):::startNode --> Orch["🎯 Orchestrator<br/><b>Рустем Галеев</b>"]
+    Orch -.->|RAG Multi-Query| RAG[("🗄️ Qdrant DB<br/><i>40+ теорем</i>")]
     
     Orch --> P1
     
@@ -52,17 +52,17 @@ flowchart LR
         P1["1. Декомпозиция"] --> P2["2. SymPy аудит"] --> P3["3. Синтез & Evidence Graph"]
     end
     
-    P3 --> Skeptic[🕵️ Skeptic Red-Team<br/><b>Степан Иванов</b>]
-    Skeptic --> Judge[⚖️ Judge / Verifier<br/><b>Сергей Галкин</b>]
+    P3 --> Skeptic["🕵️ Skeptic Red-Team<br/><b>Степан Иванов</b>"]
+    Skeptic --> Judge["⚖️ Judge / Verifier<br/><b>Сергей Галкин</b>"]
     
     Judge -->|REVISE| Orch
-    Judge -->|ACCEPT| Out([🏁 Финальный вердикт]):::finishNode
+    Judge -->|ACCEPT| Out(["🏁 Финальный вердикт"]):::finishNode
     
-    Out -.-> UI[💻 Web UI Streamlit]
-    Out -.-> QA[🧪 QA Benchmark (Е. Рудко)]
+    Out -.-> UI["💻 Web UI Streamlit"]
+    Out -.-> QA["🧪 QA Benchmark (Е. Рудко)"]
 
-    classDef startNode fill:#0288D1,stroke:#01579B,stroke-width:2px,color:#FFFFFF;
-    classDef finishNode fill:#2E7D32,stroke:#1B5E20,stroke-width:2px,color:#FFFFFF;
+    classDef startNode fill:#0288D1,stroke:#01579B,stroke-width:2px,color:#FFFFFF
+    classDef finishNode fill:#2E7D32,stroke:#1B5E20,stroke-width:2px,color:#FFFFFF
 ```
 
 ---
