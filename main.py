@@ -1,119 +1,83 @@
-from typing import TypedDict
-
+"""
+Точка входа и сборки графа Agentic Truth:
+Мультиагентная верификация доказательств по теоретическому матанализу.
+Архитектура: LangGraph + Prover Subgraph + SymPy Tools + GigaChat.
+"""
 from langgraph.graph import END, START, StateGraph
-
-
-# 1. Shared state used by every node
-class State(TypedDict):
-    query: str
-    pro_evidence: str
-    con_evidence: str
-    final_answer: str
-
-
-# 2. Dummy node functions
-
-
-def coordinator_node(state: State):
-    """Receives the question and coordinates the workflow."""
-    print("Coordinator: received the question.")
-
-    # The Coordinator has no special field in our simple State,
-    # so we return the query unchanged.
-    return {"query": state["query"]}
-
-
-def prover_node(state: State):
-    """Pretends to find evidence supporting the query."""
-    print("Prover: looking for supporting evidence.")
-
-    return {
-        "pro_evidence": "Found some supporting facts."
-    }
-
-
-def skeptic_node(state: State):
-    """Pretends to find evidence opposing the query."""
-    print("Skeptic: looking for opposing evidence.")
-
-    return {
-        "con_evidence": "Found some opposing facts."
-    }
-
-
-def verifier_node(state: State):
-    """Pretends to check both sides and create a final answer."""
-    print("Verifier: checking the evidence.")
-
-    final_answer = (
-        f"Mock answer for: {state['query']}\n"
-        f"Supporting evidence: {state['pro_evidence']}\n"
-        f"Opposing evidence: {state['con_evidence']}"
-    )
-
-    return {
-        "final_answer": final_answer
-    }
-
-
-# 3. Conditional routing function
-
-
-def verifier_router(state: State):
-    """
-    Decide what happens after the Verifier.
-
-    If a final answer exists, end the graph.
-    Otherwise, send the workflow back to the Coordinator.
-    """
-    if state["final_answer"]:
-        print("Verifier: final answer is ready -> ending graph.")
-        return "finish"
-
-    print("Verifier: no final answer yet -> retrying.")
-    return "retry"
-
-
-# 4. Build the graph
-
-builder = StateGraph(State)
-
-builder.add_node("coordinator", coordinator_node)
-builder.add_node("prover", prover_node)
-builder.add_node("skeptic", skeptic_node)
-builder.add_node("verifier", verifier_node)
-
-# Normal edges
-builder.add_edge(START, "coordinator")
-builder.add_edge("coordinator", "prover")
-builder.add_edge("prover", "skeptic")
-builder.add_edge("skeptic", "verifier")
-
-# Conditional edge from the Verifier
-builder.add_conditional_edges(
-    "verifier",
-    verifier_router,
-    {
-        "finish": END,
-        "retry": "coordinator",
-    },
+from core.state import State
+from agents import (
+    orchestrator_node,
+    prover_subgraph,
+    skeptic_node,
+    judge_node,
+    judge_router
 )
 
-# Compile the graph
-graph = builder.compile()
+
+def build_main_graph():
+    """
+    Сборка основного графа системы.
+    Координатор -> Подграф Prover -> Скептик -> Судья (с условным роутингом).
+    """
+    builder = StateGraph(State)
+
+    # 1. Регистрация узлов (Prover подключается как полноценный подграф!)
+    builder.add_node("coordinator", orchestrator_node)
+    builder.add_node("prover", prover_subgraph)
+    builder.add_node("skeptic", skeptic_node)
+    builder.add_node("verifier", judge_node)
+
+    # 2. Основной линейный поток
+    builder.add_edge(START, "coordinator")
+    builder.add_edge("coordinator", "prover")
+    builder.add_edge("prover", "skeptic")
+    builder.add_edge("skeptic", "verifier")
+
+    # 3. Условный переход после Судьи (завершение или ревизия)
+    builder.add_conditional_edges(
+        "verifier",
+        judge_router,
+        {
+            "finish": END,
+            "retry": "coordinator",
+        },
+    )
+
+    return builder.compile()
 
 
-# 5. Run the graph with a test question
+# Скомпилированный граф для импорта в Streamlit / FastAPI
+graph = build_main_graph()
+
 
 if __name__ == "__main__":
+    test_query = "Сформулируй и строго докажи теорему Больцано-Коши об обращении непрерывной функции в ноль"
+
     initial_state: State = {
-        "query": "Is Python a good language for beginners?",
+        "query": test_query,
         "pro_evidence": "",
         "con_evidence": "",
         "final_answer": "",
     }
 
+    print("=" * 80)
+    print("🚀 AGENTIC TRUTH: ЗАПУСК МУЛЬТИАГЕНТНОЙ СИСТЕМЫ ПО МАТАНАЛИЗУ")
+    print("🤖 Движок рассуждений: GigaChat (Сбер) | Формальный аудит: SymPy")
+    print("=" * 80)
+
     final_state = graph.invoke(initial_state)
 
-    print("\n--- FINAL ANSWER ---")
-    print(final_state["final_answer"])
+    print("\n" + "=" * 80)
+    print("📋 РЕЗУЛЬТАТ РАБОТЫ ТВОЕГО PROVER AGENT (ГРИГОРИЙ КОЦЕНКО):")
+    print("=" * 80)
+    print(final_state.get("pro_evidence", "Нет данных"))
+
+    print("\n" + "=" * 80)
+    print("🧮 СИМВОЛЬНЫЙ АУДИТ SYMPY TOOLS:")
+    print("=" * 80)
+    print(final_state.get("sympy_result", "Символьный аудит не сформирован"))
+
+    print("\n" + "=" * 80)
+    print("🏁 ИТОГОВЫЙ ОТВЕТ СИСТЕМЫ:")
+    print("=" * 80)
+    print(final_state.get("final_answer", ""))

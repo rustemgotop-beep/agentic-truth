@@ -1,0 +1,24 @@
+# Ядро LangChain и оркестрация агентов
+langgraph
+langchain-core
+
+# Интеграция с нейросетью GigaChat (Сбер)
+langchain-gigachat
+gigachat
+
+# Поиск и векторная база данных (RAG)
+qdrant-client
+scikit-learn
+langchain-tavily
+tavily-python
+
+# Математический движок и утилиты
+sympy
+requests
+python-dotenv
+pydantic
+
+# Интерфейсы (веб-приложение и ноутбуки)
+streamlit
+notebook
+ipython
