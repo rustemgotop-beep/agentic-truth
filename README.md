@@ -42,18 +42,21 @@
 
 ```mermaid
 flowchart TD
-    User([📥 Пользователь / Запрос]):::startNode --> Orch[🎯 Orchestrator Agent<br/><b>Рустем Галеев</b><br/><i>Классификация и Multi-Query генерация</i>]
+    User([📥 Запрос пользователя]):::startNode --> Orch[🎯 Orchestrator Agent<br/><b>Рустем Галеев</b><br/><i>Классификация и Multi-Query генерация</i>]
     
-    Orch --> RAG[(🗄️ Векторная БД Qdrant<br/><i>40+ теорем, 9500+ dims, TF-IDF</i>)]
-    RAG --> Prover[📐 Prover Subgraph<br/><b>Григорий Коценко</b>]
+    Orch --> RAG[(🗄️ Векторная база Qdrant<br/><i>40+ теорем, 9500+ dims, TF-IDF</i>)]
     
-    subgraph SubgraphProver ["📐 3-стадийный Prover Subgraph (Коценко)"]
+    subgraph SubgraphProver ["📐 Prover Subgraph (Григорий Коценко)"]
         direction TB
-        P1["1. Декомпозиция условий<br/><i>f ∈ C[a,b], f ∈ D(a,b), f(a)=f(b)</i>"] --> P2["2. Формальный SymPy аудит<br/><i>SafeSymPyRunner AST Sandbox</i>"]
-        P2 --> P3["3. Синтез доказательства<br/><i>+ Канонический Evidence Graph</i>"]
+        P1["1. Декомпозиция условий<br/><i>f ∈ C[a, b], f ∈ D(a, b), f(a) = f(b)</i>"]
+        P2["2. Формальный SymPy аудит<br/><i>SafeSymPyRunner AST Sandbox</i>"]
+        P3["3. Синтез доказательства<br/><i>+ Канонический Evidence Graph</i>"]
+        P1 --> P2 --> P3
     end
     
-    Prover --> Skeptic[🕵️ Skeptic Red-Team Agent<br/><b>Степан Иванов</b><br/><i>Реестр математических патологий</i>]
+    RAG --> P1
+    P3 --> Skeptic[🕵️ Skeptic Red-Team Agent<br/><b>Степан Иванов</b><br/><i>Реестр математических патологий</i>]
+    
     Skeptic --> Judge[⚖️ Judge / Verifier Agent<br/><b>Сергей Галкин</b><br/><i>Арбитраж и скоринг 0–100%</i>]
     
     Judge -->|Вердикт: REVISE<br/>Итерация #1| LoopNode["🔄 Self-Reflection Loop<br/><i>Передача judge_feedback и con_evidence</i>"]
