@@ -26,6 +26,7 @@ class State(TypedDict, total=False):
     assumptions: List[str]
     sympy_code: str
     sympy_result: str
+    sympy_status: Literal["success", "failed"]
     proof_graph: Dict[str, List]
 
     # 3. Поля Skeptic Agent (Member 3)

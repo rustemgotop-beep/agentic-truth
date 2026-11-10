@@ -112,7 +112,11 @@ def judge_node(state: State) -> Dict[str, Any]:
     confidence = float(eval_data.get("confidence_score", 0.90))
     summary = eval_data.get("review_summary", "Доказательство проверено.")
 
-    if iteration >= 2 and verdict == "REVISE":
+    if state.get("sympy_status") == "failed":
+        verdict = "REVISE"
+        confidence = min(confidence, 0.5)
+        summary += " Символьная проверка не пройдена; доказательство не может быть принято."
+    elif iteration >= 2 and verdict == "REVISE":
         verdict = "ACCEPT"
         summary += "(Утверждено на 2-й итерации после ревизии замечаний)."
 

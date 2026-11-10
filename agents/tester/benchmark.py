@@ -42,7 +42,9 @@ def run_benchmark_suite(
                 "final_answer": ""
             })
             duration = time.time() - start_time
-            has_sympy = bool(out.get("sympy_code") and "sp." in str(out.get("sympy_code")))
+            has_sympy = out.get("sympy_status") != "failed" and bool(
+                out.get("sympy_code") and "sp." in str(out.get("sympy_code"))
+            )
             sources_count = len(out.get("retrieved_chunks", []))
             gaps_count = len(out.get("logical_gaps", []))
             verdict = out.get("verdict", "ACCEPT")
@@ -62,7 +64,7 @@ def run_benchmark_suite(
                 "confidence_score": confidence,
                 "iterations": out.get("iteration", 1),
                 "latency_sec": round(duration, 2),
-                "success": True
+                "success": out.get("sympy_status") != "failed"
             })
         except Exception as e:
             duration = time.time() - start_time

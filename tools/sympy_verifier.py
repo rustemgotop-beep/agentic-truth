@@ -3,6 +3,88 @@ import sympy as sp
 from typing import Dict, Any, Tuple
 
 
+class SecurityError(Exception):
+    """Ошибка статического анализа потенциально опасного кода."""
+
+    DEFAULT_MESSAGE = "Использование системных вызовов запрещено, используй только SymPy"
+
+    def __init__(self, message: str = DEFAULT_MESSAGE):
+        super().__init__(message)
+
+
+class SymPyASTValidator(ast.NodeVisitor):
+    """Разрешает только безопасные математические конструкции SymPy."""
+
+    ALLOWED_IMPORTS = {"sympy", "math"}
+    BLOCKED_CALLS = {
+        "open",
+        "eval",
+        "exec",
+        "__import__",
+        "compile",
+        "input",
+        "globals",
+        "locals",
+        "vars",
+        "getattr",
+        "setattr",
+        "delattr",
+    }
+
+    def _reject(self) -> None:
+        raise SecurityError()
+
+    def visit_Import(self, node: ast.Import) -> None:
+        if any(alias.name not in self.ALLOWED_IMPORTS for alias in node.names):
+            self._reject()
+        self.generic_visit(node)
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        module = node.module or ""
+        if node.level or module not in self.ALLOWED_IMPORTS:
+            self._reject()
+        self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call) -> None:
+        function_name = ""
+        if isinstance(node.func, ast.Name):
+            function_name = node.func.id
+        elif isinstance(node.func, ast.Attribute):
+            function_name = node.func.attr
+
+        if function_name in self.BLOCKED_CALLS or function_name.startswith("__"):
+            self._reject()
+        self.generic_visit(node)
+
+    def visit_Name(self, node: ast.Name) -> None:
+        if node.id.startswith("__"):
+            self._reject()
+        self.generic_visit(node)
+
+    def visit_Attribute(self, node: ast.Attribute) -> None:
+        if node.attr.startswith("__"):
+            self._reject()
+        self.generic_visit(node)
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        self._reject()
+
+    def visit_ListComp(self, node: ast.ListComp) -> None:
+        self._reject()
+
+    def visit_SetComp(self, node: ast.SetComp) -> None:
+        self._reject()
+
+    def visit_DictComp(self, node: ast.DictComp) -> None:
+        self._reject()
+
+    def visit_GeneratorExp(self, node: ast.GeneratorExp) -> None:
+        self._reject()
+
+    def visit_NamedExpr(self, node: ast.NamedExpr) -> None:
+        self._reject()
+
+
 class SafeSymPyRunner:
     """
     Безопасный исполнитель символьных математических проверок на базе SymPy.
@@ -46,29 +128,46 @@ class SafeSymPyRunner:
         return lines[-1] if lines else ""
 
     @classmethod
-    def execute_expression(cls, expr_code: str) -> Tuple[bool, str]:
+    def execute_expression(cls, expr_code: str, *, raise_on_error: bool = False) -> Tuple[bool, str]:
         """Парсит и вычисляет символьное выражение через SymPy с полной AST-валидацией."""
-        target_line = cls.extract_code_line(expr_code)
-        if not target_line:
+        # Валидируем весь ответ, а не одну извлеченную строку: иначе опасный
+        # импорт до выражения мог бы быть отброшен extract_code_line().
+        llm_code = expr_code.strip()
+        if llm_code.startswith("```") and llm_code.endswith("```"):
+            lines = llm_code.splitlines()
+            if len(lines) >= 3:
+                llm_code = "\n".join(lines[1:-1]).strip()
+        if not llm_code:
+            if raise_on_error:
+                raise ValueError("Пустое выражение")
             return False, "Пустое выражение"
 
         try:
-            tree = ast.parse(target_line, mode="eval")
-            for node in ast.walk(tree):
-                if isinstance(node, (ast.Import, ast.ImportFrom, ast.Lambda, ast.ListComp, ast.GeneratorExp)):
-                    return False, "Недопустимая конструкция в верификаторе"
-                if isinstance(node, ast.Name) and node.id.startswith("__"):
-                    return False, "Доступ к служебным идентификаторам запрещен"
-                if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
-                    return False, "Доступ к служебным атрибутам запрещен"
+            tree = ast.parse(llm_code)
+            SymPyASTValidator().visit(tree)
+            if len(tree.body) != 1 or not isinstance(tree.body[0], ast.Expr):
+                raise ValueError("Ожидается одно математическое выражение")
         except SyntaxError as e:
+            if raise_on_error:
+                raise
             return False, f"Синтаксическая ошибка: {e}"
+        except SecurityError as e:
+            if raise_on_error:
+                raise
+            return False, f"SecurityError: {e}"
+        except ValueError as e:
+            if raise_on_error:
+                raise
+            return False, str(e)
 
         ctx = cls.get_math_context()
         try:
-            result = eval(target_line, {"__builtins__": cls.ALLOWED_BUILTINS}, ctx)
+            expression = ast.Expression(body=tree.body[0].value)
+            result = eval(compile(expression, "<sympy>", "eval"), {"__builtins__": cls.ALLOWED_BUILTINS}, ctx)
             return True, str(result)
         except Exception as e:
+            if raise_on_error:
+                raise
             return False, f"Ошибка вычисления: {e}"
 
 
@@ -82,9 +181,9 @@ def run_model_verification(query: str, proposed_code: str = "") -> Dict[str, str
 
     # 1. Если предложен валидный код от LLM — пробуем выполнить его
     if proposed_code:
-        clean_code = SafeSymPyRunner.extract_code_line(proposed_code)
-        success, res = SafeSymPyRunner.execute_expression(clean_code)
+        success, res = SafeSymPyRunner.execute_expression(proposed_code)
         if success:
+            clean_code = SafeSymPyRunner.extract_code_line(proposed_code)
             return {
                 "code": clean_code,
                 "result": res,

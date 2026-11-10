@@ -5,6 +5,7 @@ Prover Agent (Григорий Коценко: Proof Prompts + SymPy Tools).
 2. Символьная верификация математических шагов (SymPy Audit)
 3. Синтез строгого академического доказательства (Proof Synthesis)
 """
+import traceback
 from typing import Dict, Any, List
 from langgraph.graph import StateGraph, START, END
 from core.state import State
@@ -72,22 +73,70 @@ def sympy_verification_node(state: State) -> Dict[str, Any]:
     query = state["query"]
 
     proposed_code = ""
+    generation_unavailable = False
     try:
         raw_res = (SYMPY_CODE_PROMPT | llm).invoke({"query": query})
         raw_text = raw_res.content if hasattr(raw_res, "content") else str(raw_res)
-        candidate = SafeSymPyRunner.extract_code_line(raw_text)
-        if any(fn in candidate for fn in ["sp.", "diff", "limit", "solve", "integrate", "series", "simplify"]):
-            proposed_code = candidate
+        proposed_code = raw_text.strip()
     except Exception as e:
+        generation_unavailable = True
         print(f"Генерация кода SymPy через LLM пропущена ({e}), задействован аналитический верификатор.")
 
-    # Выполняем безопасную верификацию через SafeSymPyRunner
-    verification = run_model_verification(query, proposed_code)
-    print(f"[Prover] SymPy верификация завершена: {verification['code']} -> {verification['result']}")
+    if generation_unavailable:
+        # Офлайн-режим: сохраняем прежний аналитический верификатор.
+        try:
+            verification = run_model_verification(query)
+            print(f"[Prover] SymPy верификация завершена: {verification['code']} -> {verification['result']}")
+            return {
+                "sympy_code": verification["code"],
+                "sympy_result": verification["report"],
+                "sympy_status": "success",
+            }
+        except Exception:
+            error_traceback = traceback.format_exc()
+            print(f"[Prover] Критический сбой аналитической верификации:\n{error_traceback}")
+            return {"sympy_code": "", "sympy_result": "Проверка SymPy не выполнена.", "sympy_status": "failed"}
 
+    for attempt in range(1, 4):
+        try:
+            # Передаём LLM исходный traceback, а не замаскированный fallback-ответ.
+            _, result = SafeSymPyRunner.execute_expression(proposed_code, raise_on_error=True)
+            clean_code = SafeSymPyRunner.extract_code_line(proposed_code)
+
+            print(f"[Prover] SymPy верификация успешна (попытка {attempt}/3): {clean_code} -> {result}")
+            return {
+                "sympy_code": clean_code,
+                "sympy_result": (
+                    f"- **Выражение SymPy**: `{clean_code}`\n"
+                    f"- **Результат вычисления**: `{result}`\n"
+                    "- **Статус**: СИМВОЛЬНОЕ ТОЖДЕСТВО ПОДТВЕРЖДЕНО"
+                ),
+                "sympy_status": "success",
+            }
+        except Exception as e:
+            error_traceback = traceback.format_exc()
+            if attempt == 3:
+                break
+
+            repair_prompt = (
+                f"Твой предыдущий код для SymPy упал с ошибкой Python:\n{error_traceback}\n"
+                "Проанализируй Traceback, исправь логику и верни ТОЛЬКО исправленный рабочий код\n"
+                f"Предыдущий код: {proposed_code}\nИсходный запрос: {query}"
+            )
+            print(f"[Prover] Ошибка SymPy (попытка {attempt}/3): {e}. Запрашиваю исправление.")
+            try:
+                response = llm.invoke(repair_prompt)
+                raw_text = response.content if hasattr(response, "content") else str(response)
+                proposed_code = raw_text.strip()
+            except Exception:
+                error_traceback = traceback.format_exc()
+                break
+
+    print(f"[Prover] Критический сбой SymPy после попытки {attempt}/3:\n{error_traceback}")
     return {
-        "sympy_code": verification["code"],
-        "sympy_result": verification["report"]
+        "sympy_code": proposed_code,
+        "sympy_result": "Проверка SymPy не выполнена после попыток исправления.",
+        "sympy_status": "failed",
     }
 
 
@@ -144,14 +193,18 @@ def synthesize_proof_node(state: State) -> Dict[str, Any]:
     nodes = [
         {"id": "Claim", "type": "Claim", "label": query[:70]},
         {"id": "Assumptions", "type": "Evidence", "label": f"Условия ({len(assumptions_list)} шт.)"},
-        {"id": "SymPy", "type": "Verification", "label": f"SymPy: {state.get('sympy_code', 'verified')}"},
+        {"id": "SymPy", "type": "Verification", "label": (
+            "SymPy: проверка не пройдена" if state.get("sympy_status") == "failed"
+            else f"SymPy: {state.get('sympy_code', 'verified')}"
+        )},
         {"id": "Proof", "type": "Evidence", "label": f"Доказательство (Итерация #{iteration})"}
     ]
     edges = [
         {"from": "Assumptions", "to": "Proof", "relation": "conditions_for"},
-        {"from": "SymPy", "to": "Proof", "relation": "formally_verifies"},
         {"from": "Proof", "to": "Claim", "relation": "supports"}
     ]
+    if state.get("sympy_status") != "failed":
+        edges.append({"from": "SymPy", "to": "Proof", "relation": "formally_verifies"})
 
     # Добавляем узлы первоисточников (Source Nodes) и ребра обоснования (grounded_in)
     for i, chunk in enumerate(chunks, 1):
@@ -174,7 +227,7 @@ def synthesize_proof_node(state: State) -> Dict[str, Any]:
             "query": query,
             "iteration": iteration,
             "sources_count": len(chunks),
-            "status": "grounded"
+            "status": "verification_failed" if state.get("sympy_status") == "failed" else "grounded"
         }
     }
 
